@@ -1,0 +1,23 @@
+# Gradle / Android build outputs
+.gradle/
+build/
+app/build/
+
+# Local SDK/config
+local.properties
+
+# IDE/editor files
+.idea/
+*.iml
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated APKs kept local unless attached to a release
+*.apk
+*.aab
+
+# Logs
+*.log

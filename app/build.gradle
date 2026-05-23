@@ -1,0 +1,20 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.mexcould.snake'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.mexcould.snake'
+        minSdk 23
+        targetSdk 35
+        versionCode 6
+        versionName '0.6.0'
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
