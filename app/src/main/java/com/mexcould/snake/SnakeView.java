@@ -15,14 +15,16 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 public class SnakeView extends View {
     private static final int START_LENGTH = 4;
 
     private enum Direction { UP, DOWN, LEFT, RIGHT }
-    private enum GameState { MENU, READY, RUNNING, GAME_OVER, PAUSED, OPTIONS, FRIENDS }
+    private enum GameState { MENU, READY, RUNNING, GAME_OVER, PAUSED, OPTIONS, FRIENDS, LEADERBOARD }
 
     private static final class Cell {
         int x;
@@ -51,6 +53,9 @@ public class SnakeView extends View {
     private final RectF startButton = new RectF();
     private final RectF optionsButton = new RectF();
     private final RectF friendsButton = new RectF();
+    private final RectF leaderboardButton = new RectF();
+    private final RectF shareScoresButton = new RectF();
+    private final RectF playerNameButton = new RectF();
     private final RectF playAgainButton = new RectF();
     private final RectF menuButton = new RectF();
     private final RectF shareCodeButton = new RectF();
@@ -85,6 +90,7 @@ public class SnakeView extends View {
     private int score = 0;
     private int highScore = 0;
     private String friendCode;
+    private String playerName;
     private boolean optionsOpenedFromGame = false;
     private boolean gameResetByOptionChange = false;
     private float downX;
@@ -99,6 +105,7 @@ public class SnakeView extends View {
         optionPrefs = context.getSharedPreferences("snake_options", Context.MODE_PRIVATE);
         highScore = 0;
         friendCode = friendsPrefs.getString("friend_code", "");
+        playerName = friendsPrefs.getString("player_name", "Player");
         if (!FriendCode.isValid(friendCode)) {
             friendCode = FriendCode.generate(random);
             friendsPrefs.edit().putString("friend_code", friendCode).apply();
@@ -220,6 +227,7 @@ public class SnakeView extends View {
         if (state == GameState.MENU) { drawMenu(canvas, p); return; }
         if (state == GameState.OPTIONS) { drawOptions(canvas, p); return; }
         if (state == GameState.FRIENDS) { drawFriends(canvas, p); return; }
+        if (state == GameState.LEADERBOARD) { drawLeaderboard(canvas, p); return; }
 
         float topPadding = getHeight() * 0.12f;
         float bottomReserve = options.controls == GameOptions.Controls.BUTTONS ? dp(155) : dp(80);
@@ -256,15 +264,17 @@ public class SnakeView extends View {
         paint.setColor(p.muted);
         canvas.drawText("Classic arcade snake", getWidth() / 2f, getHeight() * 0.27f, paint);
         float w = getWidth() * 0.72f;
-        startButton.set((getWidth()-w)/2f, getHeight()*0.35f, (getWidth()+w)/2f, getHeight()*0.43f);
-        friendsButton.set(startButton.left, startButton.bottom + dp(16), startButton.right, startButton.bottom + dp(16) + startButton.height());
-        optionsButton.set(startButton.left, friendsButton.bottom + dp(16), startButton.right, friendsButton.bottom + dp(16) + startButton.height());
+        startButton.set((getWidth()-w)/2f, getHeight()*0.32f, (getWidth()+w)/2f, getHeight()*0.40f);
+        leaderboardButton.set(startButton.left, startButton.bottom + dp(13), startButton.right, startButton.bottom + dp(13) + startButton.height());
+        friendsButton.set(startButton.left, leaderboardButton.bottom + dp(13), startButton.right, leaderboardButton.bottom + dp(13) + startButton.height());
+        optionsButton.set(startButton.left, friendsButton.bottom + dp(13), startButton.right, friendsButton.bottom + dp(13) + startButton.height());
         drawButton(canvas, p, startButton, "PLAY");
+        drawButton(canvas, p, leaderboardButton, "LEADERBOARD");
         drawButton(canvas, p, friendsButton, "FRIENDS");
         drawButton(canvas, p, optionsButton, "OPTIONS");
         paint.setColor(p.muted);
         paint.setTextSize(sp(14));
-        canvas.drawText("High score: " + highScore, getWidth()/2f, optionsButton.bottom + dp(42), paint);
+        canvas.drawText("Current high: " + highScore + "  •  " + options.difficultyLabel() + " / " + options.wallModeLabel(), getWidth()/2f, optionsButton.bottom + dp(34), paint);
         if (options.adsEnabled) drawAdPlaceholder(canvas, p);
     }
 
@@ -340,6 +350,61 @@ public class SnakeView extends View {
         drawButton(canvas, p, joinPlaceholderButton, "JOIN CODE: COMING SOON");
         drawButton(canvas, p, newCodeButton, "GENERATE NEW CODE");
         drawButton(canvas, p, backButton, "BACK TO MENU");
+    }
+
+    private void drawLeaderboard(Canvas canvas, Palette p) {
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setFakeBoldText(true);
+        paint.setColor(p.text);
+        paint.setTextSize(sp(29));
+        canvas.drawText("LEADERBOARD", getWidth()/2f, dp(62), paint);
+        paint.setFakeBoldText(false);
+        paint.setTextSize(sp(13));
+        paint.setColor(p.muted);
+        canvas.drawText("Local high scores by difficulty and mode", getWidth()/2f, dp(90), paint);
+
+        float w = getWidth() * 0.84f;
+        playerNameButton.set((getWidth()-w)/2f, dp(108), (getWidth()+w)/2f, dp(156));
+        drawButton(canvas, p, playerNameButton, "PLAYER: " + playerName);
+
+        Map<String, Integer> scoreMap = leaderboardScores();
+        List<LocalLeaderboard.Row> rows = LocalLeaderboard.rows(scoreMap);
+        float rowTop = dp(174);
+        float rowH = dp(42);
+        paint.setTextAlign(Paint.Align.LEFT);
+        paint.setTextSize(sp(15));
+        for (int i = 0; i < rows.size(); i++) {
+            LocalLeaderboard.Row row = rows.get(i);
+            RectF r = new RectF(dp(24), rowTop + i * (rowH + dp(8)), getWidth() - dp(24), rowTop + i * (rowH + dp(8)) + rowH);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(p.panel);
+            canvas.drawRoundRect(r, dp(10), dp(10), paint);
+            paint.setColor(p.text);
+            canvas.drawText(row.label, r.left + dp(14), r.centerY() + dp(5), paint);
+            paint.setTextAlign(Paint.Align.RIGHT);
+            paint.setFakeBoldText(true);
+            canvas.drawText(String.valueOf(row.score), r.right - dp(14), r.centerY() + dp(5), paint);
+            paint.setFakeBoldText(false);
+            paint.setTextAlign(Paint.Align.LEFT);
+        }
+        paint.setTextAlign(Paint.Align.CENTER);
+        shareScoresButton.set(dp(24), getHeight() - dp(150), getWidth() - dp(24), getHeight() - dp(98));
+        backButton.set(dp(24), getHeight() - dp(82), getWidth() - dp(24), getHeight() - dp(30));
+        drawButton(canvas, p, shareScoresButton, "SHARE SCORES");
+        drawButton(canvas, p, backButton, "BACK TO MENU");
+    }
+
+    private Map<String, Integer> leaderboardScores() {
+        Map<String, Integer> scoreMap = new HashMap<>();
+        for (GameOptions.Difficulty difficulty : GameOptions.Difficulty.values()) {
+            for (GameOptions.WallMode wallMode : GameOptions.WallMode.values()) {
+                GameOptions o = new GameOptions();
+                o.difficulty = difficulty;
+                o.wallMode = wallMode;
+                scoreMap.put(o.highScoreKey(), prefs.getInt(o.highScoreKey(), 0));
+            }
+        }
+        return scoreMap;
     }
 
     private void drawQrStylePlaceholder(Canvas canvas, float cx, float top, float size) {
@@ -507,12 +572,14 @@ public class SnakeView extends View {
             float x = event.getX(), y = event.getY();
             if (state == GameState.MENU) {
                 if (startButton.contains(x, y)) { playTone(ToneGenerator.TONE_PROP_ACK, 80); resetGame(true); startGame(); return true; }
+                if (leaderboardButton.contains(x, y)) { playTone(ToneGenerator.TONE_PROP_ACK, 80); state = GameState.LEADERBOARD; invalidate(); return true; }
                 if (friendsButton.contains(x, y)) { playTone(ToneGenerator.TONE_PROP_ACK, 80); state = GameState.FRIENDS; invalidate(); return true; }
                 if (optionsButton.contains(x, y)) { playTone(ToneGenerator.TONE_PROP_ACK, 80); state = GameState.OPTIONS; invalidate(); return true; }
                 return true;
             }
             if (state == GameState.OPTIONS) { handleOptionsTap(x, y); return true; }
             if (state == GameState.FRIENDS) { handleFriendsTap(x, y); return true; }
+            if (state == GameState.LEADERBOARD) { handleLeaderboardTap(x, y); return true; }
             if (state == GameState.PAUSED) { handlePauseTap(x, y); return true; }
             if ((state == GameState.RUNNING || state == GameState.READY) && pauseButton.contains(x, y)) { pauseGame(); return true; }
             if (state == GameState.GAME_OVER) {
@@ -553,6 +620,31 @@ public class SnakeView extends View {
             return;
         }
         if (menuButton.contains(x, y)) { optionsOpenedFromGame = false; resetGame(false); }
+    }
+
+    private void handleLeaderboardTap(float x, float y) {
+        if (shareScoresButton.contains(x, y)) { shareScores(); return; }
+        if (playerNameButton.contains(x, y)) { cyclePlayerName(); return; }
+        if (backButton.contains(x, y)) { resetGame(false); }
+    }
+
+    private void cyclePlayerName() {
+        if ("Player".equals(playerName)) playerName = "Chris";
+        else if ("Chris".equals(playerName)) playerName = "Snake Fan";
+        else playerName = "Player";
+        friendsPrefs.edit().putString("player_name", playerName).apply();
+        playTone(ToneGenerator.TONE_PROP_ACK, 65);
+        invalidate();
+    }
+
+    private void shareScores() {
+        playTone(ToneGenerator.TONE_PROP_ACK, 80);
+        Intent sendIntent = new Intent(Intent.ACTION_SEND);
+        sendIntent.setType("text/plain");
+        sendIntent.putExtra(Intent.EXTRA_TEXT, LocalLeaderboard.shareText(playerName, friendCode, leaderboardScores()));
+        Intent chooser = Intent.createChooser(sendIntent, "Share Snake Classic scores");
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        appContext.startActivity(chooser);
     }
 
     private void handleFriendsTap(float x, float y) {
@@ -653,6 +745,7 @@ public class SnakeView extends View {
     private float dp(float value) { return value * getResources().getDisplayMetrics().density; }
     private float sp(float value) { return value * getResources().getDisplayMetrics().scaledDensity; }
 }
+
 
 
 

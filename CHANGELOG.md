@@ -2,6 +2,18 @@
 
 All notable changes to Snake Classic will be tracked here.
 
+## v0.7.0 — 2026-05-22
+
+### Added
+- Local Leaderboard screen from the main menu.
+- Leaderboard rows for all six difficulty + wall mode combinations.
+- Share Scores button using the Android share sheet.
+- Player name selector for shared score text.
+- Test-covered local leaderboard row/share text model.
+
+### Changed
+- Main menu now includes a dedicated Leaderboard button.
+
 ## v0.6.0 — 2026-05-22
 
 ### Added

@@ -1,7 +1,7 @@
 # P002 — Snake Classic
 
 ## Status
-Prototype APK v0.6
+Prototype APK v0.7
 
 ## Goal
 Create a basic classic Snake game for Android and test via direct APK download/sideload before deciding whether to publish on Google Play.
